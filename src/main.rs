@@ -6,6 +6,7 @@ use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle};
 
 mod board;
 use board::{BoardPlugin, TILE_SIZE};
+use piece::PiecePlugin;
 
 mod piece;
 
@@ -48,10 +49,11 @@ fn main() {
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(TilemapPlugin)
         .add_plugins(DefaultPickingPlugins)
-        .add_plugin(BoardPlugin)
         // Systems
         .add_startup_system_to_stage(StartupStage::PreStartup, asset_loader)
         .add_startup_system(spawn_camera)
+        .add_plugin(BoardPlugin)
+        .add_plugin(PiecePlugin)
         .run();
 }
 
