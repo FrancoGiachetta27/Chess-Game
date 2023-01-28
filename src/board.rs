@@ -11,17 +11,29 @@ use bevy_ecs_tilemap::{
 };
 use bevy_mod_picking::{PickableBundle, PickingEvent, Selection, SelectionEvent};
 
-use crate::{piece, GameAssets};
+use crate::{
+    piece::{self, Piece, Position},
+    GameAssets,
+};
 
 pub const TILE_SIZE: f32 = 64.0;
+
+pub enum Tile {
+    Empty,
+    NotEmpty,
+}
+
+#[derive(Component)]
+pub struct TileComponent {
+    pub tile_type: Tile,
+}
 
 pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(Self::tilemap_builder)
-            .add_startup_system_to_stage(StartupStage::PostStartup, Self::setup_pieces)
-            .add_system(Self::select_piece);
+            .add_startup_system_to_stage(StartupStage::PostStartup, Self::setup_pieces);
     }
 }
 
@@ -48,6 +60,9 @@ impl BoardPlugin {
                         tilemap_id: TilemapId(tilemap_entity),
                         ..default()
                     })
+                    .insert(TileComponent {
+                        tile_type: Tile::Empty,
+                    })
                     .insert(Name::new(format!("Tile ({}, {})", x, y)))
                     .id();
 
@@ -70,6 +85,7 @@ impl BoardPlugin {
             texture: TilemapTexture::Single(texture_handle),
             tile_size,
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
+            global_transform: GlobalTransform::default(),
             ..default()
         });
     }
@@ -79,28 +95,30 @@ impl BoardPlugin {
         mut commands: Commands,
         game_assets: Res<GameAssets>,
         tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapType)>,
-        tile_query: Query<&TilePos>,
+        mut tile_query: Query<(&TilePos, &mut TileComponent)>,
         mut meshes: ResMut<Assets<Mesh>>,
     ) {
         for (tile_storage, grid_size, map_type) in tile_storage_q.iter() {
             //Blacks
 
             // spawn black rocks
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Rock,
                 TilePos { x: 0, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_rock.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Rock,
                 TilePos { x: 7, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_rock.clone(),
@@ -108,21 +126,23 @@ impl BoardPlugin {
             );
 
             // spawn black knights
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Knight,
                 TilePos { x: 1, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_knight.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Knight,
                 TilePos { x: 6, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_knight.clone(),
@@ -130,21 +150,23 @@ impl BoardPlugin {
             );
 
             // spawn black bishops
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Bishop,
                 TilePos { x: 2, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_bishop.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Bishop,
                 TilePos { x: 5, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_bishop.clone(),
@@ -152,11 +174,12 @@ impl BoardPlugin {
             );
 
             // spawn black queen
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Queen,
                 TilePos { x: 3, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_queen.clone(),
@@ -164,11 +187,12 @@ impl BoardPlugin {
             );
 
             // spawn black king
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::King,
                 TilePos { x: 4, y: 7 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.black_king.clone(),
@@ -177,11 +201,12 @@ impl BoardPlugin {
 
             // spawn black pawns
             for x in 0..8 {
-                Self::spawn_piece(
+                piece::spawn_piece(
                     &mut commands,
+                    Piece::Pawn,
                     TilePos { x, y: 6 },
                     tile_storage,
-                    &tile_query,
+                    &mut tile_query,
                     grid_size,
                     map_type,
                     game_assets.black_pawn.clone(),
@@ -192,21 +217,23 @@ impl BoardPlugin {
             // WHITES
 
             // spawn white rocks
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Rock,
                 TilePos { x: 0, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_rock.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Rock,
                 TilePos { x: 7, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_rock.clone(),
@@ -214,21 +241,23 @@ impl BoardPlugin {
             );
 
             // spawn white knights
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Knight,
                 TilePos { x: 1, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_knight.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Knight,
                 TilePos { x: 6, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_knight.clone(),
@@ -236,21 +265,23 @@ impl BoardPlugin {
             );
 
             // spawn white bishops
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Bishop,
                 TilePos { x: 2, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_bishop.clone(),
                 &mut meshes,
             );
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Bishop,
                 TilePos { x: 5, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_bishop.clone(),
@@ -258,11 +289,12 @@ impl BoardPlugin {
             );
 
             // spawn white queen
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::Queen,
                 TilePos { x: 3, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_queen.clone(),
@@ -270,11 +302,12 @@ impl BoardPlugin {
             );
 
             // spawn white king
-            Self::spawn_piece(
+            piece::spawn_piece(
                 &mut commands,
+                Piece::King,
                 TilePos { x: 4, y: 0 },
                 tile_storage,
-                &tile_query,
+                &mut tile_query,
                 grid_size,
                 map_type,
                 game_assets.white_king.clone(),
@@ -283,117 +316,17 @@ impl BoardPlugin {
 
             // spawn white pawns
             for x in 0..8 {
-                Self::spawn_piece(
+                piece::spawn_piece(
                     &mut commands,
+                    Piece::Pawn,
                     TilePos { x, y: 1 },
                     tile_storage,
-                    &tile_query,
+                    &mut tile_query,
                     grid_size,
                     map_type,
                     game_assets.white_pawn.clone(),
                     &mut meshes,
                 );
-            }
-        }
-    }
-
-    // helper function to spawn the pieces
-    fn spawn_piece(
-        commands: &mut Commands,
-        pos: TilePos,
-        tile_storage: &TileStorage,
-        tile_query: &Query<&TilePos>,
-        grid_size: &TilemapGridSize,
-        map_type: &TilemapType,
-        asset: Handle<Image>,
-        meshes: &mut Assets<Mesh>,
-    ) {
-        // gets the entity of the tile in the given tile position
-        let tile_entity = tile_storage.get(&pos).unwrap();
-        // // gets the transform relative to the tile position selected
-        let tile_pos = tile_query
-            .get(tile_entity)
-            .unwrap()
-            .center_in_world(&grid_size, &map_type);
-
-        commands
-            .spawn((
-                SpriteBundle {
-                    texture: asset.clone(),
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(64.0, 64.0)),
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(tile_pos.x, tile_pos.y, 1.0),
-                    ..default()
-                },
-                meshes.add(Mesh::from(shape::Quad::new(Vec2::splat(64.0)))),
-                PickableBundle::default(),
-            ))
-            .insert(Name::new("Piece"));
-    }
-
-    // detects wether a piece has been selected, then gets the tile where
-    // the player wants it to be moved
-    fn select_piece(
-        mut commands: Commands,
-        mut events: EventReader<PickingEvent>,
-        mut transform_q: Query<&mut Transform>,
-        windows: Res<Windows>,
-        tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<ColorMaterial>>,
-    ) {
-        for event in events.iter() {
-            let (tile_storage, grid_size, map_size, map_type) = tile_storage_q.single();
-            match event {
-                PickingEvent::Selection(e) => match e {
-                    SelectionEvent::JustSelected(_s) => {
-                        let window = windows.get_primary().unwrap();
-
-                        //get the cursor position, if it is on the window
-                        if let Some(pos) = window.cursor_position() {
-                            // gets the position of tile selected by the player
-                            let tile_pos =
-                                TilePos::from_world_pos(&pos, map_size, grid_size, map_type)
-                                    .unwrap();
-
-                            piece::get_posible_movements(
-                                &mut commands,
-                                tile_storage,
-                                grid_size,
-                                map_size,
-                                map_type,
-                                tile_pos,
-                                &mut meshes,
-                                &mut materials,
-                            );
-                        }
-                    }
-                    SelectionEvent::JustDeselected(s) => {
-                        let window = windows.get_primary().unwrap();
-
-                        //get the cursor position, if it is on the window
-                        if let Some(pos) = window.cursor_position() {
-                            // gets the position of tile selected by the player
-                            let tile_pos =
-                                TilePos::from_world_pos(&pos, map_size, grid_size, map_type)
-                                    .unwrap();
-
-                            // converts the tile position into the transform which is at the
-                            // center of the selected tile
-                            let new_pos = tile_pos.center_in_world(grid_size, map_type);
-                            // gets the reference to the selection's transform to be changed
-                            let mut selection_t = transform_q.get_mut(*s).unwrap();
-
-                            selection_t.translation = Vec3::new(new_pos.x, new_pos.y, 1.0);
-                        } else {
-                            info!("No Tile in this position");
-                        }
-                    }
-                    _ => {}
-                },
-                _ => {}
             }
         }
     }
