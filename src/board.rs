@@ -1,7 +1,4 @@
-use bevy::{
-    prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-};
+use bevy::prelude::*;
 use bevy_ecs_tilemap::{
     prelude::{
         TilemapGridSize, TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType,
@@ -9,22 +6,23 @@ use bevy_ecs_tilemap::{
     tiles::{TileBundle, TileColor, TilePos, TileStorage},
     TilemapBundle,
 };
-use bevy_mod_picking::{PickableBundle, PickingEvent, Selection, SelectionEvent};
 
 use crate::{
-    piece::{self, Piece, Position},
+    piece::{self, Piece},
     GameAssets,
 };
 
 pub const TILE_SIZE: f32 = 64.0;
 
+#[derive(Debug)]
 pub enum Tile {
     Empty,
     NotEmpty,
+    WithCircle,
 }
 
-#[derive(Component)]
-pub struct TileComponent {
+#[derive(Component, Debug)]
+pub struct TileState {
     pub tile_type: Tile,
 }
 
@@ -60,7 +58,7 @@ impl BoardPlugin {
                         tilemap_id: TilemapId(tilemap_entity),
                         ..default()
                     })
-                    .insert(TileComponent {
+                    .insert(TileState {
                         tile_type: Tile::Empty,
                     })
                     .insert(Name::new(format!("Tile ({}, {})", x, y)))
@@ -95,7 +93,7 @@ impl BoardPlugin {
         mut commands: Commands,
         game_assets: Res<GameAssets>,
         tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapType)>,
-        mut tile_query: Query<(&TilePos, &mut TileComponent)>,
+        mut tile_query: Query<(&TilePos, &mut TileState)>,
         mut meshes: ResMut<Assets<Mesh>>,
     ) {
         for (tile_storage, grid_size, map_type) in tile_storage_q.iter() {
