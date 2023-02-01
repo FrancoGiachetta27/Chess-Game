@@ -3,14 +3,14 @@ use bevy::{
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
 use bevy_ecs_tilemap::{
-    helpers::square_grid::neighbors::Neighbors,
+    helpers::square_grid::neighbors::{Neighbors, SquareDirection},
     prelude::{TilemapGridSize, TilemapSize, TilemapType},
     tiles::{TilePos, TileStorage},
 };
 use bevy_mod_picking::{PickableBundle, PickingEvent, SelectionEvent};
 use iyes_loopless::prelude::IntoConditionalSystem;
 
-use crate::board::{Tile, TileComponent};
+use crate::board::{Tile, TileState};
 
 pub struct PiecePlugin;
 
@@ -29,115 +29,161 @@ pub struct Position;
 
 impl Plugin for PiecePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(move_piece.run_on_event::<PickingEvent>())
+        app.add_system(select_piece.run_on_event::<PickingEvent>())
+            .add_system(move_piece.run_on_event::<PickingEvent>())
             .run();
     }
 }
 
 // detects wether a piece has been selected, then gets the tile where
 // the player wants it to be moved
-fn move_piece(
+fn select_piece(
     mut commands: Commands,
     mut events: EventReader<PickingEvent>,
-    mut tile_query: Query<&mut TileComponent>,
-    mut transform_q: Query<&mut Transform>,
+    mut tile_state_q: Query<&mut TileState>,
     piece_type: Query<&Piece>,
     windows: Res<Windows>,
     tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
-    highlight_pos: Query<Entity, With<Position>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for event in events.iter() {
         let (tile_storage, grid_size, map_size, map_type) = tile_storage_q.single();
 
-        match event {
-            PickingEvent::Selection(e) => match e {
-                SelectionEvent::JustSelected(s) => {
-                    if let Ok(t) = piece_type.get(*s) {
-                        let window = windows.get_primary().unwrap();
-                        //get the cursor position, if it is on the window
-                        if let Some(pos) = window.cursor_position() {
-                            // gets the position of tile selected by the player
-                            let tile_pos =
-                                TilePos::from_world_pos(&pos, map_size, grid_size, map_type)
-                                    .unwrap();
-
-                            get_posible_movements(
-                                t,
-                                &mut commands,
-                                tile_storage,
-                                grid_size,
-                                map_size,
-                                map_type,
-                                &tile_query,
-                                tile_pos,
-                                &mut meshes,
-                                &mut materials,
-                            );
-                        }
-                    }
-                }
-                SelectionEvent::JustDeselected(s) => {
+        if let PickingEvent::Selection(e) = event {
+            if let SelectionEvent::JustSelected(s) = e {
+                if let Ok(tile_t) = piece_type.get(*s) {
                     let window = windows.get_primary().unwrap();
-
                     //get the cursor position, if it is on the window
                     if let Some(pos) = window.cursor_position() {
                         // gets the position of tile selected by the player
                         let tile_pos =
                             TilePos::from_world_pos(&pos, map_size, grid_size, map_type).unwrap();
-                        // gets the entity of the tile just clicked
-                        let tile_ent = tile_storage.get(&tile_pos).unwrap();
 
-                        // checks wether the movement is correct
-                        if let Ok(_e) = highlight_pos.get(tile_ent) {
-                            // despawns the meshes the shows posible movements
-                            for ent in highlight_pos.iter() {
-                                commands.entity(ent).despawn_recursive();
-                            }
-
-                            //get the tile component and change its type to NotEmpty
-                            let mut tile_component = tile_query
-                                .get_mut(tile_storage.get(&tile_pos).unwrap())
-                                .unwrap();
-
-                            tile_component.tile_type = Tile::NotEmpty;
-
-                            // converts the tile position into the transform which is at the
-                            // center of the selected tile
-                            let new_pos = tile_pos.center_in_world(grid_size, map_type);
-
-                            // gets the reference to the selection's transform to be changed
-                            let mut selection_t = transform_q.get_mut(*s).unwrap();
-
-                            let old_tile = TilePos::from_world_pos(
-                                &Vec2::new(selection_t.translation.x, selection_t.translation.y),
-                                map_size,
-                                grid_size,
-                                map_type,
-                            )
-                            .unwrap();
-
-                            //get the tile component and change its type to Empty
-                            let mut tile_component = tile_query
-                                .get_mut(tile_storage.get(&old_tile).unwrap())
-                                .unwrap();
-
-                            tile_component.tile_type = Tile::Empty;
-
-                            selection_t.translation = Vec3::new(new_pos.x, new_pos.y, 1.0);
-                        }
-                    } else {
-                        info!("No Tile in this position");
+                        get_posible_movements(
+                            tile_t,
+                            &mut commands,
+                            tile_storage,
+                            grid_size,
+                            map_size,
+                            map_type,
+                            &mut tile_state_q,
+                            tile_pos,
+                            &mut meshes,
+                            &mut materials,
+                        );
                     }
                 }
-                _ => {}
-            },
-            _ => {}
+            }
         }
     }
 }
-// shows, with a circle, where the player can move the piece to depending on it's type
+
+fn move_piece(
+    mut commands: Commands,
+    mut events: EventReader<PickingEvent>,
+    mut tile_state_q: Query<&mut TileState>,
+    mut transform_q: Query<&mut Transform>,
+    windows: Res<Windows>,
+    tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
+    highlight_pos: Query<Entity, With<Position>>,
+) {
+    for event in events.iter() {
+        if let PickingEvent::Selection(e) = event {
+            if let SelectionEvent::JustDeselected(s) = e {
+                let (tile_storage, grid_size, map_size, map_type) = tile_storage_q.single();
+
+                let window = windows.get_primary().unwrap();
+
+                //get the cursor position, if it is on the window
+                if let Some(pos) = window.cursor_position() {
+                    // gets the position of tile selected by the player
+                    let tile_pos =
+                        TilePos::from_world_pos(&pos, map_size, grid_size, map_type).unwrap();
+                    // gets the state of the entity of the tile just clicked
+                    let mut tile_s = tile_state_q
+                        .get_mut(tile_storage.get(&tile_pos).unwrap())
+                        .unwrap();
+
+                    // checks wether the movement is correct
+                    if let Tile::WithCircle = tile_s.tile_type {
+                        // converts the tile position into the transform which is at the
+                        // center of the selected tile
+                        let new_pos = tile_pos.center_in_world(grid_size, map_type);
+
+                        // gets the reference to the selection's transform to be changed
+                        let mut selection_t = transform_q.get_mut(*s).unwrap();
+
+                        tile_s.tile_type = Tile::NotEmpty;
+
+                        // get the old tile position
+                        let old_tile = TilePos::from_world_pos(
+                            &Vec2::new(selection_t.translation.x, selection_t.translation.y),
+                            map_size,
+                            grid_size,
+                            map_type,
+                        )
+                        .unwrap();
+
+                        //get the old tile state and change its type to Empty
+                        tile_s = tile_state_q
+                            .get_mut(tile_storage.get(&old_tile).unwrap())
+                            .unwrap();
+
+                        tile_s.tile_type = Tile::Empty;
+
+                        selection_t.translation = Vec3::new(new_pos.x, new_pos.y, 1.0);
+
+                        // despawns the meshes the shows posible movements
+                        for ent in highlight_pos.iter() {
+                            reset_neighbors(
+                                &mut commands,
+                                &mut tile_state_q,
+                                &transform_q,
+                                tile_storage,
+                                grid_size,
+                                map_size,
+                                map_type,
+                                ent,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn reset_neighbors(
+    commands: &mut Commands,
+    tile_state_q: &mut Query<&mut TileState>,
+    transform_q: &Query<&mut Transform>,
+    tile_storage: &TileStorage,
+    grid_size: &TilemapGridSize,
+    map_size: &TilemapSize,
+    map_type: &TilemapType,
+    ent: Entity,
+) {
+    let transform = transform_q.get(ent).unwrap();
+    let tile_pos = TilePos::from_world_pos(
+        &Vec2::new(transform.translation.x, transform.translation.y),
+        map_size,
+        grid_size,
+        map_type,
+    )
+    .unwrap();
+    let neighbor = tile_storage.get(&tile_pos).unwrap();
+    let mut neigh_state = tile_state_q.get_mut(neighbor).unwrap();
+
+    // avoid setting to Empty the state of the neighbor we have moved the piece to
+    if let Tile::WithCircle = neigh_state.tile_type {
+        neigh_state.tile_type = Tile::Empty;
+    }
+
+    commands.entity(ent).despawn_recursive();
+}
+
+// shows, with a circle, where the player can move the piece to, depending on it's type
 fn get_posible_movements(
     piece_type: &Piece,
     commands: &mut Commands,
@@ -145,7 +191,7 @@ fn get_posible_movements(
     grid_size: &TilemapGridSize,
     map_size: &TilemapSize,
     map_type: &TilemapType,
-    tile_component: &Query<&mut TileComponent>,
+    tile_state_q: &mut Query<&mut TileState>,
     pos: TilePos,
     mesh: &mut Assets<Mesh>,
     material: &mut Assets<ColorMaterial>,
@@ -160,28 +206,41 @@ fn get_posible_movements(
                 Neighbors::get_square_neighboring_positions(&pos, map_size, true);
 
             for pos in neighbors_positions.iter() {
-                let tile_ent = tile_storage.get(&pos).unwrap();
-                let transform = pos.center_in_world(grid_size, map_type);
-                let tile_c = tile_component.get(tile_ent).unwrap();
+                let neigh_ent = tile_storage.get(&pos).unwrap();
+                //tile state
+                let mut tile_s = tile_state_q.get_mut(neigh_ent).unwrap();
+
+                info!("TileState: {:?}", tile_s);
 
                 //check wether there is a piece on the tile
-                if let Tile::Empty = tile_c.tile_type {
-                    commands
-                        .spawn(MaterialMesh2dBundle {
-                            mesh: Mesh2dHandle(
-                                mesh.add(Mesh::from(shape::Circle::new(16.0))).into(),
-                            ),
-                            transform: Transform::from_xyz(transform.x, transform.y, 1.0),
-                            material: material.add(ColorMaterial::from(
-                                Color::hex("B0A8B9").expect("Error here"),
-                            )),
-                            ..Default::default()
-                        })
-                        .insert(Position);
+                if let Tile::Empty = tile_s.tile_type {
+                    tile_s.tile_type = Tile::WithCircle;
+                    spawn_circle(commands, grid_size, map_type, pos, mesh, material);
                 }
             }
+
+            println!(" ");
         }
-        Piece::Pawn => {}
+        Piece::Pawn => {
+            let neighbor_position =
+                Neighbors::get_square_neighboring_positions(&pos, map_size, true);
+
+            let north_neighbor = neighbor_position.get(SquareDirection::North).unwrap();
+            let tile_ent = tile_storage.get(&north_neighbor).unwrap();
+            let mut tile_s = tile_state_q.get_mut(tile_ent).unwrap();
+
+            if let Tile::Empty = tile_s.tile_type {
+                tile_s.tile_type = Tile::WithCircle;
+                spawn_circle(
+                    commands,
+                    grid_size,
+                    map_type,
+                    north_neighbor,
+                    mesh,
+                    material,
+                );
+            }
+        }
     }
 }
 
@@ -191,7 +250,7 @@ pub fn spawn_piece(
     piece_type: Piece,
     pos: TilePos,
     tile_storage: &TileStorage,
-    tile_query: &mut Query<(&TilePos, &mut TileComponent)>,
+    tile_query: &mut Query<(&TilePos, &mut TileState)>,
     grid_size: &TilemapGridSize,
     map_type: &TilemapType,
     asset: Handle<Image>,
@@ -200,21 +259,22 @@ pub fn spawn_piece(
     // gets the entity of the tile in the given tile position
     let tile_entity = tile_storage.get(&pos).unwrap();
 
-    // // gets the transform relative to the tile position selected
-    let (tile_pos, mut component) = {
-        let (pos, cmp) = tile_query.get_mut(tile_entity).unwrap();
+    // gets the transform relative to the tile position selected
+    // and the state of the it
+    let (tile_pos, mut state) = {
+        let (pos, st) = tile_query.get_mut(tile_entity).unwrap();
 
-        (pos.center_in_world(grid_size, map_type), cmp)
+        (pos.center_in_world(grid_size, map_type), st)
     };
 
-    component.tile_type = Tile::NotEmpty;
+    state.tile_type = Tile::NotEmpty;
 
     commands
         .spawn((
             SpriteBundle {
                 texture: asset.clone(),
                 sprite: Sprite {
-                    custom_size: Some(Vec2::new(64.0, 64.0)),
+                    custom_size: Some(Vec2::new(48.0, 48.0)),
                     ..default()
                 },
                 transform: Transform::from_xyz(tile_pos.x, tile_pos.y, 1.0),
@@ -226,3 +286,28 @@ pub fn spawn_piece(
         .insert(piece_type)
         .insert(Name::new("Piece"));
 }
+
+fn spawn_circle(
+    commands: &mut Commands,
+    grid_size: &TilemapGridSize,
+    map_type: &TilemapType,
+    tile_pos: &TilePos,
+    mesh: &mut Assets<Mesh>,
+    material: &mut Assets<ColorMaterial>,
+) {
+    // 2D vector with the x and y of the tile transform
+    let vec_t = tile_pos.center_in_world(grid_size, map_type);
+
+    commands
+        .spawn(MaterialMesh2dBundle {
+            mesh: Mesh2dHandle(mesh.add(Mesh::from(shape::Circle::new(16.0))).into()),
+            transform: Transform::from_xyz(vec_t.x, vec_t.y, 1.0),
+            material: material.add(ColorMaterial::from(
+                Color::hex("B0A8B9").expect("Error here"),
+            )),
+            ..Default::default()
+        })
+        .insert(Position);
+}
+
+fn handle_piece_death() {}
