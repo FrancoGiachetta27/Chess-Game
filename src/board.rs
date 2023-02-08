@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 use bevy_ecs_tilemap::{
     prelude::{
-        TilemapGridSize, TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType,
+        get_tilemap_center_transform, TilemapGridSize, TilemapId, TilemapSize, TilemapTexture,
+        TilemapTileSize, TilemapType,
     },
     tiles::{TileBundle, TileColor, TilePos, TileStorage},
     TilemapBundle,
@@ -30,7 +31,7 @@ pub struct BoardPlugin;
 
 impl Plugin for BoardPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(Self::tilemap_builder)
+        app.add_startup_system_to_stage(StartupStage::Startup, Self::tilemap_builder)
             .add_startup_system_to_stage(StartupStage::PostStartup, Self::setup_pieces);
     }
 }
@@ -45,7 +46,7 @@ impl BoardPlugin {
 
         for x in 0..map_size.x {
             for y in 0..map_size.y {
-                let white_tile = (x % 2 == 0 && y % 2 != 0) || (x % 2 != 0 && y % 2 == 0);
+                let white_tile = ((x % 2 == 0) && (y % 2 != 0)) || ((x % 2 != 0) && (y % 2 == 0));
                 let color: TileColor = match white_tile {
                     true => Color::rgba(255.0, 255.0, 255.0, 1.0).into(),
                     false => Color::rgba(0.0, 0.0, 0.0, 1.0).into(),
@@ -73,17 +74,19 @@ impl BoardPlugin {
             y: TILE_SIZE,
         };
         let grid_size: TilemapGridSize = tile_size.into();
-        let map_type = TilemapType::default();
+        let map_type = TilemapType::Square;
 
         commands.entity(tilemap_entity).insert(TilemapBundle {
             grid_size,
-            map_type,
             size: map_size,
             storage: tile_storage,
+            map_type,
             texture: TilemapTexture::Single(texture_handle),
             tile_size,
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            global_transform: GlobalTransform::default(),
+            transform: Transform::from_translation(
+                get_tilemap_center_transform(&map_size, &grid_size, &map_type, 0.0).translation
+                    + Transform::from_xyz(TILE_SIZE * 4.0, TILE_SIZE * 4.0, 0.0).translation,
+            ),
             ..default()
         });
     }

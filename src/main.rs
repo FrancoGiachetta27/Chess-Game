@@ -5,10 +5,9 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle};
 
 mod board;
+mod piece;
 use board::{BoardPlugin, TILE_SIZE};
 use piece::PiecePlugin;
-
-mod piece;
 
 const WIDTH: f32 = 512.0;
 const HEIGHT: f32 = 512.0;
@@ -33,25 +32,30 @@ pub struct GameAssets {
 fn main() {
     App::new()
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: format!(
-                    "{} - v{}",
-                    env!("CARGO_PKG_NAME"),
-                    env!("CARGO_PKG_VERSION")
-                ),
-                width: WIDTH,
-                height: HEIGHT,
-                ..default()
-            },
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: format!(
+                            "{} - v{}",
+                            env!("CARGO_PKG_NAME"),
+                            env!("CARGO_PKG_VERSION")
+                        ),
+                        width: WIDTH,
+                        height: HEIGHT,
+                        resizable: true,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
+        )
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(TilemapPlugin)
         .add_plugins(DefaultPickingPlugins)
         // Systems
-        .add_startup_system_to_stage(StartupStage::PreStartup, asset_loader)
         .add_startup_system(spawn_camera)
+        .add_startup_system_to_stage(StartupStage::PreStartup, asset_loader)
         .add_plugin(BoardPlugin)
         .add_plugin(PiecePlugin)
         .run();
