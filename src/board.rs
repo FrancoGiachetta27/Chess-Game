@@ -9,7 +9,7 @@ use bevy_ecs_tilemap::{
 };
 
 use crate::{
-    piece::{self, Piece},
+    piece::{self, Piece, Team},
     GameAssets,
 };
 
@@ -106,6 +106,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Rock,
+                Team::Black,
                 TilePos { x: 0, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -117,6 +118,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Rock,
+                Team::Black,
                 TilePos { x: 7, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -130,6 +132,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Knight,
+                Team::Black,
                 TilePos { x: 1, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -141,6 +144,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Knight,
+                Team::Black,
                 TilePos { x: 6, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -154,6 +158,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Bishop,
+                Team::Black,
                 TilePos { x: 2, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -165,6 +170,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Bishop,
+                Team::Black,
                 TilePos { x: 5, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -178,6 +184,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Queen,
+                Team::Black,
                 TilePos { x: 3, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -191,6 +198,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::King,
+                Team::Black,
                 TilePos { x: 4, y: 7 },
                 tile_storage,
                 &mut tile_query,
@@ -205,6 +213,7 @@ impl BoardPlugin {
                 piece::spawn_piece(
                     &mut commands,
                     Piece::Pawn,
+                    Team::Black,
                     TilePos { x, y: 6 },
                     tile_storage,
                     &mut tile_query,
@@ -221,6 +230,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Rock,
+                Team::White,
                 TilePos { x: 0, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -232,6 +242,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Rock,
+                Team::White,
                 TilePos { x: 7, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -245,6 +256,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Knight,
+                Team::White,
                 TilePos { x: 1, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -256,6 +268,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Knight,
+                Team::White,
                 TilePos { x: 6, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -269,6 +282,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Bishop,
+                Team::White,
                 TilePos { x: 2, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -280,6 +294,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Bishop,
+                Team::White,
                 TilePos { x: 5, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -293,6 +308,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::Queen,
+                Team::White,
                 TilePos { x: 3, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -306,6 +322,7 @@ impl BoardPlugin {
             piece::spawn_piece(
                 &mut commands,
                 Piece::King,
+                Team::White,
                 TilePos { x: 4, y: 0 },
                 tile_storage,
                 &mut tile_query,
@@ -320,6 +337,7 @@ impl BoardPlugin {
                 piece::spawn_piece(
                     &mut commands,
                     Piece::Pawn,
+                    Team::White,
                     TilePos { x, y: 1 },
                     tile_storage,
                     &mut tile_query,

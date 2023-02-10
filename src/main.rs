@@ -6,6 +6,7 @@ use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle};
 
 mod board;
 mod piece;
+mod movements;
 use board::{BoardPlugin, TILE_SIZE};
 use piece::PiecePlugin;
 
