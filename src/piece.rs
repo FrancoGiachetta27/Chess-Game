@@ -10,7 +10,10 @@ use bevy_ecs_tilemap::{
 use bevy_mod_picking::{selection::Selection, PickableBundle, PickingEvent, SelectionEvent};
 use iyes_loopless::prelude::IntoConditionalSystem;
 
-use crate::board::{Tile, TileState};
+use crate::{
+    board::{Tile, TileState},
+    movements,
+};
 
 pub struct PiecePlugin;
 
@@ -48,6 +51,7 @@ fn get_piece_movements(
     mut events: EventReader<PickingEvent>,
     mut tile_state_q: Query<&mut TileState>,
     piece_type: Query<&Piece>,
+    piece_team: Query<&Team>,
     tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
     transform_q: Query<&mut Transform>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -75,7 +79,7 @@ fn get_piece_movements(
                                     SquareDirection::East,
                                 ];
 
-                                get_complex_movements(
+                                movements::sequencial_pieces(
                                     &mut commands,
                                     tile_storage,
                                     grid_size,
@@ -88,53 +92,16 @@ fn get_piece_movements(
                                     neighbor_directions,
                                 );
                             }
-                            Piece::Knight => {
-                                let directions: Vec<(i32, i32)> = vec![
-                                    (1, 2),
-                                    (-1, 2),
-                                    (1, -2),
-                                    (-1, -2),
-                                    (2, 1),
-                                    (2, -1),
-                                    (-2, 1),
-                                    (-2, -1),
-                                ];
-
-                                for direction in directions.iter() {
-                                    // get the posible move's position
-                                    let (x, y) = (
-                                        tile_pos.x as i32 + direction.0,
-                                        tile_pos.y as i32 + direction.1,
-                                    );
-
-                                    if (x >= 0 && x <= 7) && (y >= 0 && y <= 7) {
-                                        let new_pos = TilePos {
-                                            x: x as u32,
-                                            y: y as u32,
-                                        };
-
-                                        if let Some(neigh_ent) = tile_storage.get(&new_pos) {
-                                            //tile state
-                                            let mut tile_s =
-                                                tile_state_q.get_mut(neigh_ent).unwrap();
-                                            info!("POS: ({}, {})", new_pos.x, new_pos.y);
-
-                                            //check wether there is a piece on the tile
-                                            if let Tile::Empty = tile_s.tile_type {
-                                                tile_s.tile_type = Tile::WithCircle;
-                                                spawn_circle(
-                                                    &mut commands,
-                                                    grid_size,
-                                                    map_type,
-                                                    &new_pos,
-                                                    &mut meshes,
-                                                    &mut materials,
-                                                );
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            Piece::Knight => movements::knight_movement(
+                                &mut commands,
+                                tile_storage,
+                                tile_pos,
+                                &mut tile_state_q,
+                                grid_size,
+                                map_type,
+                                &mut meshes,
+                                &mut materials,
+                            ),
                             Piece::Bishop => {
                                 let neighbor_directions: Vec<SquareDirection> = vec![
                                     SquareDirection::NorthWest,
@@ -143,7 +110,7 @@ fn get_piece_movements(
                                     SquareDirection::SouthEast,
                                 ];
 
-                                get_complex_movements(
+                                movements::sequencial_pieces(
                                     &mut commands,
                                     tile_storage,
                                     grid_size,
@@ -168,7 +135,7 @@ fn get_piece_movements(
                                     SquareDirection::SouthEast,
                                 ];
 
-                                get_complex_movements(
+                                movements::sequencial_pieces(
                                     &mut commands,
                                     tile_storage,
                                     grid_size,
@@ -181,54 +148,30 @@ fn get_piece_movements(
                                     neighbor_directions,
                                 );
                             }
-                            Piece::King => {
-                                let neighbors_positions =
-                                    Neighbors::get_square_neighboring_positions(
-                                        &tile_pos, map_size, true,
-                                    );
-                                let mut neigh_ent: Entity;
-
-                                for pos in neighbors_positions.iter() {
-                                    neigh_ent = tile_storage.get(&pos).unwrap();
-                                    //tile state
-                                    let mut tile_s = tile_state_q.get_mut(neigh_ent).unwrap();
-
-                                    //check wether there is a piece on the tile
-                                    if let Tile::Empty = tile_s.tile_type {
-                                        tile_s.tile_type = Tile::WithCircle;
-                                        spawn_circle(
-                                            &mut commands,
-                                            grid_size,
-                                            map_type,
-                                            pos,
-                                            &mut meshes,
-                                            &mut materials,
-                                        );
-                                    }
-                                }
-                            }
-                            Piece::Pawn => {
-                                let neighbor_position = Neighbors::get_square_neighboring_positions(
-                                    &tile_pos, map_size, true,
-                                );
-
-                                let north_neighbor =
-                                    neighbor_position.get(SquareDirection::North).unwrap();
-                                let tile_ent = tile_storage.get(&north_neighbor).unwrap();
-                                let mut tile_s = tile_state_q.get_mut(tile_ent).unwrap();
-
-                                if let Tile::Empty = tile_s.tile_type {
-                                    tile_s.tile_type = Tile::WithCircle;
-                                    spawn_circle(
-                                        &mut commands,
-                                        grid_size,
-                                        map_type,
-                                        north_neighbor,
-                                        &mut meshes,
-                                        &mut materials,
-                                    );
-                                }
-                            }
+                            Piece::King => movements::king_movement(
+                                &mut commands,
+                                tile_storage,
+                                tile_pos,
+                                &mut tile_state_q,
+                                grid_size,
+                                map_size,
+                                map_type,
+                                &mut meshes,
+                                &mut materials,
+                            ),
+                            Piece::Pawn => movements::pawn_movement(
+                                &mut commands,
+                                *s,
+                                tile_pos,
+                                tile_storage,
+                                &mut tile_state_q,
+                                grid_size,
+                                map_size,
+                                map_type,
+                                &piece_team,
+                                &mut meshes,
+                                &mut materials,
+                            ),
                         }
                     }
                 }
@@ -345,56 +288,6 @@ fn reset_neighbors(
     commands.entity(ent).despawn_recursive();
 }
 
-// gets
-fn get_complex_movements(
-    commands: &mut Commands,
-    tile_storage: &TileStorage,
-    grid_size: &TilemapGridSize,
-    map_size: &TilemapSize,
-    map_type: &TilemapType,
-    tile_state_q: &mut Query<&mut TileState>,
-    pos: TilePos,
-    mesh: &mut Assets<Mesh>,
-    material: &mut Assets<ColorMaterial>,
-    neighbor_directions: Vec<SquareDirection>,
-) {
-    let tile_neighbors = Neighbors::get_square_neighboring_positions(&pos, map_size, true);
-
-    //spawn in every specified direction
-    neighbor_directions.iter().for_each(|dir| {
-        if let Some(pos) = tile_neighbors.get(*dir) {
-            let mut new_pos = *pos;
-            let mut tile_ent = tile_storage.get(&pos).unwrap();
-            //tile state
-            let mut tile_s = tile_state_q.get_mut(tile_ent).unwrap();
-
-            //check wether there is a piece on the tile
-            if let Tile::Empty = tile_s.tile_type {
-                tile_s.tile_type = Tile::WithCircle;
-                spawn_circle(commands, grid_size, map_type, &pos, mesh, material);
-
-                //gets the neighbor which is in the direction specified, and spawns the circle, it
-                //keeps doing it until there's a piece or it reaches the end
-                while let Some(n) =
-                    Neighbors::get_square_neighboring_positions(&new_pos, map_size, true).get(*dir)
-                {
-                    tile_ent = tile_storage.get(&n).unwrap();
-                    tile_s = tile_state_q.get_mut(tile_ent).unwrap();
-
-                    // changes the position to be the last accessed neighbor's
-                    new_pos = TilePos { x: n.x, y: n.y };
-                    if let Tile::Empty = tile_s.tile_type {
-                        tile_s.tile_type = Tile::WithCircle;
-                        spawn_circle(commands, grid_size, map_type, &n, mesh, material);
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-    });
-}
-
 // helper function to spawn the pieces
 pub fn spawn_piece(
     commands: &mut Commands,
@@ -440,7 +333,7 @@ pub fn spawn_piece(
     }
 }
 
-fn spawn_circle(
+pub fn spawn_circle(
     commands: &mut Commands,
     grid_size: &TilemapGridSize,
     map_type: &TilemapType,
