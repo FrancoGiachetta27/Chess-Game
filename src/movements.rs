@@ -128,6 +128,7 @@ pub fn knight_movement(
     }
 }
 
+// queens, rocks and bishops
 pub fn sequencial_pieces(
     commands: &mut Commands,
     tile_storage: &TileStorage,
