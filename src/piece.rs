@@ -1,7 +1,6 @@
 use bevy::{
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
-    transform::TransformSystem,
 };
 use bevy_ecs_tilemap::{
     helpers::square_grid::neighbors::{Neighbors, SquareDirection},
@@ -24,18 +23,19 @@ pub enum Piece {
     Queen,
     King,
 }
+#[derive(Component)]
+pub enum Team {
+    White,
+    Black,
+}
 
 #[derive(Component)]
-pub struct Position;
+pub struct HighLight;
 
 impl Plugin for PiecePlugin {
     fn build(&self, app: &mut App) {
         app.add_system(get_piece_movements.run_on_event::<PickingEvent>())
-            .add_system(
-                move_piece
-                    .run_on_event::<PickingEvent>()
-                    .after(TransformSystem::TransformPropagate),
-            )
+            .add_system(move_piece.run_on_event::<PickingEvent>())
             .run();
     }
 }
@@ -48,7 +48,6 @@ fn get_piece_movements(
     mut events: EventReader<PickingEvent>,
     mut tile_state_q: Query<&mut TileState>,
     piece_type: Query<&Piece>,
-    windows: Res<Windows>,
     tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
     transform_q: Query<&mut Transform>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -89,7 +88,53 @@ fn get_piece_movements(
                                     neighbor_directions,
                                 );
                             }
-                            Piece::Knight => {}
+                            Piece::Knight => {
+                                let directions: Vec<(i32, i32)> = vec![
+                                    (1, 2),
+                                    (-1, 2),
+                                    (1, -2),
+                                    (-1, -2),
+                                    (2, 1),
+                                    (2, -1),
+                                    (-2, 1),
+                                    (-2, -1),
+                                ];
+
+                                for direction in directions.iter() {
+                                    // get the posible move's position
+                                    let (x, y) = (
+                                        tile_pos.x as i32 + direction.0,
+                                        tile_pos.y as i32 + direction.1,
+                                    );
+
+                                    if (x >= 0 && x <= 7) && (y >= 0 && y <= 7) {
+                                        let new_pos = TilePos {
+                                            x: x as u32,
+                                            y: y as u32,
+                                        };
+
+                                        if let Some(neigh_ent) = tile_storage.get(&new_pos) {
+                                            //tile state
+                                            let mut tile_s =
+                                                tile_state_q.get_mut(neigh_ent).unwrap();
+                                            info!("POS: ({}, {})", new_pos.x, new_pos.y);
+
+                                            //check wether there is a piece on the tile
+                                            if let Tile::Empty = tile_s.tile_type {
+                                                tile_s.tile_type = Tile::WithCircle;
+                                                spawn_circle(
+                                                    &mut commands,
+                                                    grid_size,
+                                                    map_type,
+                                                    &new_pos,
+                                                    &mut meshes,
+                                                    &mut materials,
+                                                );
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             Piece::Bishop => {
                                 let neighbor_directions: Vec<SquareDirection> = vec![
                                     SquareDirection::NorthWest,
@@ -141,9 +186,10 @@ fn get_piece_movements(
                                     Neighbors::get_square_neighboring_positions(
                                         &tile_pos, map_size, true,
                                     );
+                                let mut neigh_ent: Entity;
 
                                 for pos in neighbors_positions.iter() {
-                                    let neigh_ent = tile_storage.get(&pos).unwrap();
+                                    neigh_ent = tile_storage.get(&pos).unwrap();
                                     //tile state
                                     let mut tile_s = tile_state_q.get_mut(neigh_ent).unwrap();
 
@@ -197,8 +243,8 @@ fn move_piece(
     mut tile_state_q: Query<&mut TileState>,
     mut transform_q: Query<&mut Transform>,
     tile_storage_q: Query<(&TileStorage, &TilemapGridSize, &TilemapSize, &TilemapType)>,
-    highlight_pos: Query<Entity, With<Position>>,
-    selected_pos: Query<Entity, (Changed<Selection>, With<Position>)>,
+    highlight_pos: Query<Entity, With<HighLight>>,
+    selected_pos: Query<Entity, (Changed<Selection>, With<HighLight>)>,
 ) {
     for event in events.iter() {
         if let PickingEvent::Selection(e) = event {
@@ -353,6 +399,7 @@ fn get_complex_movements(
 pub fn spawn_piece(
     commands: &mut Commands,
     piece_type: Piece,
+    piece_team: Team,
     pos: TilePos,
     tile_storage: &TileStorage,
     tile_query: &mut Query<(&TilePos, &mut TileState)>,
@@ -362,34 +409,35 @@ pub fn spawn_piece(
     meshes: &mut Assets<Mesh>,
 ) {
     // gets the entity of the tile in the given tile position
-    let tile_entity = tile_storage.get(&pos).unwrap();
+    if let Some(tile_entity) = tile_storage.get(&pos) {
+        // gets the transform relative to the tile position selected
+        // and the state of the it
+        let tile_pos = {
+            let (pos, mut state_t) = tile_query.get_mut(tile_entity).unwrap();
 
-    // gets the transform relative to the tile position selected
-    // and the state of the it
-    let tile_pos = {
-        let (pos, mut state_t) = tile_query.get_mut(tile_entity).unwrap();
+            state_t.tile_type = Tile::NotEmpty;
 
-        state_t.tile_type = Tile::NotEmpty;
+            pos.center_in_world(grid_size, map_type)
+        };
 
-        pos.center_in_world(grid_size, map_type)
-    };
-
-    commands
-        .spawn((
-            SpriteBundle {
-                texture: asset.clone(),
-                sprite: Sprite {
-                    custom_size: Some(Vec2::new(64.0, 64.0)),
+        commands
+            .spawn((
+                SpriteBundle {
+                    texture: asset.clone(),
+                    sprite: Sprite {
+                        custom_size: Some(Vec2::new(64.0, 64.0)),
+                        ..default()
+                    },
+                    transform: Transform::from_xyz(tile_pos.x, tile_pos.y, 1.0),
                     ..default()
                 },
-                transform: Transform::from_xyz(tile_pos.x, tile_pos.y, 1.0),
-                ..default()
-            },
-            meshes.add(Mesh::from(shape::Quad::new(Vec2::splat(64.0)))),
-            PickableBundle::default(),
-        ))
-        .insert(piece_type)
-        .insert(Name::new("Piece"));
+                meshes.add(Mesh::from(shape::Quad::new(Vec2::splat(64.0)))),
+                PickableBundle::default(),
+            ))
+            .insert(piece_type)
+            .insert(piece_team)
+            .insert(Name::new("Piece"));
+    }
 }
 
 fn spawn_circle(
@@ -414,7 +462,7 @@ fn spawn_circle(
         },))
         .insert(mesh.add(Mesh::from(shape::Quad::new(Vec2::splat(64.0)))))
         .insert(PickableBundle::default())
-        .insert(Position);
+        .insert(HighLight);
 }
 
 fn handle_piece_death() {}
