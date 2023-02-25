@@ -5,13 +5,13 @@ use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle};
 
 mod board;
-mod piece;
 mod movements;
+mod piece;
 use board::{BoardPlugin, TILE_SIZE};
 use piece::PiecePlugin;
 
-const WIDTH: f32 = 512.0;
-const HEIGHT: f32 = 512.0;
+const WIDTH: f32 = 1024.0;
+const HEIGHT: f32 = 612.0;
 const BACKGROUND_COLOR: Color = Color::rgb(0.15, 0.15, 0.15);
 
 #[derive(Resource)]
@@ -44,6 +44,7 @@ fn main() {
                         ),
                         width: WIDTH,
                         height: HEIGHT,
+                        position: WindowPosition::Centered,
                         resizable: true,
                         ..default()
                     },
