@@ -4,9 +4,15 @@ use bevy_ecs_tilemap::TilemapPlugin;
 use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_mod_picking::{DefaultPickingPlugins, PickingCameraBundle};
 
+mod bishop;
 mod board;
-mod movements;
+mod king;
+mod knight;
+mod movement;
+mod pawn;
 mod piece;
+mod queen;
+mod rock;
 use board::{BoardPlugin, TILE_SIZE};
 use piece::PiecePlugin;
 
